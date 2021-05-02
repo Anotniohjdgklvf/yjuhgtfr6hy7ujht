@@ -18,7 +18,7 @@ from ..utils import (
 
 class FunimationIE(InfoExtractor):
     #TODO: make the country code in url optional?
-    _VALID_URL = r'https?://(?:www\.)?funimation(?:\.com|now\.uk)/(?P<language_code>..)/shows/[^/]+/(?P<id>[^/?#&]+)'
+    _VALID_URL = r'https?://(?:www\.)?funimation(?:\.com|now\.uk)/[a-z]{2}/shows/[^/]+/(?P<id>[^/?#&]+)'
 
     _NETRC_MACHINE = 'funimation'
     _TOKEN = None
@@ -50,7 +50,7 @@ class FunimationIE(InfoExtractor):
             'skip_download': True,
         },
     }, {
-        'url': 'https://www.funimationnow.uk/uk/shows/puzzle-dragons-x/drop-impact/simulcast/',
+        'url': 'https://www.funimationnow.uk/en/shows/puzzle-dragons-x/drop-impact/simulcast/',
         'only_matching': True,
     }]
 
@@ -181,7 +181,7 @@ class FunimationIE(InfoExtractor):
 
 class FunimationShowPlaylistIE(FunimationIE):
     IE_NAME = 'funimation:playlist'
-    _VALID_URL = r'https?://(?:www\.)?funimation(?:\.com|now\.uk)/(?P<language_code>..)/shows/(?P<id>[^/?#&]+)'
+    _VALID_URL = r'https?://(?:www\.)?funimation(?:\.com|now\.uk)/[a-z]{2}/shows/(?P<id>[^/?#&]+)'
 
     _TESTS = [{
         'url': 'https://www.funimation.com/en/shows/hacksign/',
