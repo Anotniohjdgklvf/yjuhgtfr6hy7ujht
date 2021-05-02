@@ -11,18 +11,19 @@ from ..utils import (
     int_or_none,
     js_to_json,
     ExtractorError,
-    urlencode_postdata
+    urlencode_postdata,
+    urljoin
 )
 
 
 class FunimationIE(InfoExtractor):
-    _VALID_URL = r'https?://(?:www\.)?funimation(?:\.com|now\.uk)/shows/[^/]+/(?P<id>[^/?#&]+)'
+    #TODO: make the country code in url optional?
+    _VALID_URL = r'https?://(?:www\.)?funimation(?:\.com|now\.uk)/(?P<language_code>..)/shows/[^/]+/(?P<id>[^/?#&]+)'
 
     _NETRC_MACHINE = 'funimation'
     _TOKEN = None
 
-    _TESTS = [{
-        'url': 'https://www.funimation.com/shows/hacksign/role-play/',
+    _TESTS = [{'url': 'https://www.funimation.com/en/shows/hacksign/role-play/',
         'info_dict': {
             'id': '91144',
             'display_id': 'role-play',
@@ -36,7 +37,7 @@ class FunimationIE(InfoExtractor):
             'skip_download': True,
         },
     }, {
-        'url': 'https://www.funimation.com/shows/attack-on-titan-junior-high/broadcast-dub-preview/',
+        'url': 'https://www.funimation.com/en/shows/attack-on-titan-junior-high/broadcast-dub-preview/',
         'info_dict': {
             'id': '210051',
             'display_id': 'broadcast-dub-preview',
@@ -49,7 +50,7 @@ class FunimationIE(InfoExtractor):
             'skip_download': True,
         },
     }, {
-        'url': 'https://www.funimationnow.uk/shows/puzzle-dragons-x/drop-impact/simulcast/',
+        'url': 'https://www.funimationnow.uk/uk/shows/puzzle-dragons-x/drop-impact/simulcast/',
         'only_matching': True,
     }]
 
@@ -105,6 +106,7 @@ class FunimationIE(InfoExtractor):
         if series:
             title = '%s - %s' % (series, title)
         description = self._html_search_meta(['description', 'og:description'], webpage, fatal=True)
+        subtitles = self.extract_subtitles(url, video_id, display_id)
 
         try:
             headers = {}
@@ -149,6 +151,89 @@ class FunimationIE(InfoExtractor):
             'season_number': int_or_none(title_data.get('seasonNum') or _search_kane('season')),
             'episode_number': int_or_none(title_data.get('episodeNum')),
             'episode': episode,
+            'subtitles': subtitles,
             'season_id': title_data.get('seriesId'),
             'formats': formats,
+        }
+
+    def _get_subtitles(self, url, video_id, display_id):
+        player_url = urljoin(url, '/player/' + video_id)
+        player_page = self._download_webpage(player_url, display_id)
+        text_tracks_json_string = self._search_regex(
+            r'"textTracks": (\[{.+?}\])',
+            player_page, 'subtitles data', default='')
+        if not text_tracks_json_string:
+            # Funimation player page unavailable due to robot detection.
+            # Don't warn so that unit tests still pass this step.
+            return {}
+        text_tracks = self._parse_json(
+            text_tracks_json_string, display_id, js_to_json, fatal=False) or []
+        subtitles = {}
+        for text_track in text_tracks:
+            url_element = {'url': text_track.get('src')}
+            language = text_track.get('language')
+            if language in subtitles:
+                subtitles[language].append(url_element)
+            else:
+                subtitles[language] = [url_element]
+        return subtitles
+
+
+class FunimationShowPlaylistIE(FunimationIE):
+    IE_NAME = 'funimation:playlist'
+    _VALID_URL = r'https?://(?:www\.)?funimation(?:\.com|now\.uk)/(?P<language_code>..)/shows/(?P<id>[^/?#&]+)'
+
+    _TESTS = [{
+        'url': 'https://www.funimation.com/en/shows/hacksign/',
+        'info_dict': {
+            'id': 90646,
+            'title': '.hack//SIGN'
+        },
+        'playlist_count': 28,
+        'params': {
+            'skip_download': True,
+        },
+    }]
+
+    def _real_extract(self, url):
+        display_id = self._match_id(url)
+
+        webpage = self._download_webpage(url, display_id)
+        title_data = self._parse_json(self._search_regex(
+            r'TITLE_DATA\s*=\s*({[^}]+})',
+            webpage, 'title data', default=''),
+            display_id, js_to_json, fatal=False) or {}
+        # for testing
+        # title_data = {
+        #     'id': 90646,
+        #     'title': '.hack//SIGN',
+        #     'titleSlug': 'hacksign',
+        #     'seasonNum': 1,
+        #     'type': 'show'
+        # }
+
+        items = self._download_json(
+            'https://prod-api-funimationnow.dadcdigital.com/api/funimation/episodes/?limit=99999&title_id=%s' % title_data.get('id'),
+            display_id).get('items')
+        # for testing
+        # Open a file: file
+        # file = open(r'C:\Users\USER\Desktop\episode_info.json', mode='r')
+        # all_of_it = file.read()
+        # file.close()
+        # episode_info = self._parse_json(
+        #     all_of_it, display_id, js_to_json, fatal=False) or []
+
+        # TODO do i ever need JpnUs?
+        items = list(map(lambda k: (k.get('mostRecentSvod') or k.get('mostRecentAvod')).get('item'), items))
+        items = sorted(items, key=lambda k: k.get('episodeOrder'))
+        entries = []
+        for vod_info in items:
+            entries.append(self.url_result(urljoin(url, vod_info.get('episodeSlug')), 'Funimation',
+                                           vod_info.get('episodeId'), vod_info.get('episodeSlug')))
+
+        return {
+            '_type': 'playlist',
+            'id': title_data.get('id'),
+            'title': title_data.get('title'),
+            'entries': entries,
         }
