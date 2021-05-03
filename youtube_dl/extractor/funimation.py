@@ -203,33 +203,21 @@ class FunimationShowPlaylistIE(FunimationIE):
             r'TITLE_DATA\s*=\s*({[^}]+})',
             webpage, 'title data', default=''),
             display_id, js_to_json, fatal=False) or {}
-        # for testing
-        # title_data = {
-        #     'id': 90646,
-        #     'title': '.hack//SIGN',
-        #     'titleSlug': 'hacksign',
-        #     'seasonNum': 1,
-        #     'type': 'show'
-        # }
 
         items = self._download_json(
-            'https://prod-api-funimationnow.dadcdigital.com/api/funimation/episodes/?limit=99999&title_id=%s' % title_data.get('id'),
-            display_id).get('items')
-        # for testing
-        # Open a file: file
-        # file = open(r'C:\Users\USER\Desktop\episode_info.json', mode='r')
-        # all_of_it = file.read()
-        # file.close()
-        # episode_info = self._parse_json(
-        #     all_of_it, display_id, js_to_json, fatal=False) or []
+            'https://prod-api-funimationnow.dadcdigital.com/api/funimation/episodes/?limit=99999&title_id=%s'
+            % title_data.get('id'), display_id).get('items')
 
-        # TODO do i ever need JpnUs?
-        items = list(map(lambda k: (k.get('mostRecentSvod') or k.get('mostRecentAvod')).get('item'), items))
-        items = sorted(items, key=lambda k: k.get('episodeOrder'))
+        vod_items = list(map(lambda k:
+                         (k.get('mostRecentSvod') or k.get('mostRecentAvod'))
+                         .get('item'), items))
+        vod_items = sorted(vod_items, key=lambda k: k.get('episodeOrder'))
         entries = []
-        for vod_info in items:
-            entries.append(self.url_result(urljoin(url, vod_info.get('episodeSlug')), 'Funimation',
-                                           vod_info.get('episodeId'), vod_info.get('episodeSlug')))
+        for vod_item in vod_items:
+            entries.append(
+                self.url_result(urljoin(url, vod_item.get('episodeSlug')),
+                                'Funimation', vod_item.get('episodeId'),
+                                vod_item.get('episodeSlug')))
 
         return {
             '_type': 'playlist',
