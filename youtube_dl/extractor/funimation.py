@@ -181,7 +181,7 @@ class FunimationIE(InfoExtractor):
 
 class FunimationShowPlaylistIE(FunimationIE):
     IE_NAME = 'funimation:playlist'
-    _VALID_URL = r'https?://(?:www\.)?funimation(?:\.com|now\.uk)/[a-z]{2}/shows/(?P<id>[^/?#&]+)'
+    _VALID_URL = r'https?://(?:www\.)?funimation(?:\.com|now\.uk)/[a-z]{2}/shows/(?P<id>[^/?#&]+)/?$'
 
     _TESTS = [{
         'url': 'https://www.funimation.com/en/shows/hacksign/',
